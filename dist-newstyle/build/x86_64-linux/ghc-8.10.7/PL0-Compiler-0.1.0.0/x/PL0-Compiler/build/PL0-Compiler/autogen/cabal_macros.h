@@ -20,6 +20,16 @@
   (major1) == 4 && (major2) <  14 || \
   (major1) == 4 && (major2) == 14 && (minor) <= 3)
 #endif /* MIN_VERSION_base */
+/* package pretty-simple-4.1.1.0 */
+#ifndef VERSION_pretty_simple
+#define VERSION_pretty_simple "4.1.1.0"
+#endif /* VERSION_pretty_simple */
+#ifndef MIN_VERSION_pretty_simple
+#define MIN_VERSION_pretty_simple(major1,major2,minor) (\
+  (major1) <  4 || \
+  (major1) == 4 && (major2) <  1 || \
+  (major1) == 4 && (major2) == 1 && (minor) <= 1)
+#endif /* MIN_VERSION_pretty_simple */
 
 /* tool gcc-9 */
 #ifndef TOOL_VERSION_gcc

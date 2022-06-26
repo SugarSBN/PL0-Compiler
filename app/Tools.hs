@@ -83,3 +83,7 @@ isLetter 'X' = True
 isLetter 'Y' = True
 isLetter 'Z' = True
 isLetter _   = False
+
+isSpace :: Char -> Bool
+isSpace ' ' = True
+isSpace _ = False
