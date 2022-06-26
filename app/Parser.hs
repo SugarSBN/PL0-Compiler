@@ -16,7 +16,7 @@ stringP = sequenceA . map charP
 
 sepCharP :: Parser String
 sepCharP = Parser $ \s ->
-    case runParser (predicate (\c -> ((c == ' ') || (c == '\t') || (c == '\n')))) s of
+    case runParser (predicate (\c -> ((c == ' ') || (c == '\t') || (c == '\n') || (c == '\r')))) s of
         Nothing            -> Just (s, "")
         Just (rest, token) -> Just (rest, token)
 
@@ -82,5 +82,37 @@ readP = sepCharP *> stringP "read" *> sepCharP *> stringP "(" *> sepCharP *>
 
 writeP :: Parser ComWrite
 writeP = sepCharP *> stringP "write" *> sepCharP *> stringP "(" *> sepCharP *> 
-        (ComWrite <$> sepBy (sepCharP *> charP ',' <* sepCharP) identifierP) 
+        (ComWrite <$> sepBy (sepCharP *> charP ',' <* sepCharP) exprP) 
         <* sepCharP <* stringP ")" <* sepCharP
+
+constDefineP :: Parser ConstDefine
+constDefineP = sepCharP *> ((\a _ b -> ConstDefine a b) <$> identifierP <*> (sepCharP *> charP '=' <* sepCharP) <*> unsignedIntegerP ) <* sepCharP
+
+constStateP :: Parser ConstState
+constStateP = sepCharP *> (ConstState <$> (stringP "const" *> sepCharP *> sepBy (sepCharP *> charP ',' <* sepCharP) constDefineP)) <* sepCharP <* charP ';' <* sepCharP
+
+varStateP :: Parser VarState
+varStateP = sepCharP *> (VarState <$> (stringP "var" *> sepCharP *> sepBy (sepCharP *> charP ',' <* sepCharP) identifierP)) <* sepCharP <* charP ';' <* sepCharP
+
+commandP :: Parser Command
+commandP = (CAssign <$> assignP) <|> (CCall <$> procedureCallP) <|> (CRead <$> readP) <|> (CWrite <$> writeP) <|> (CSome <$> someP)
+       <|> ifP <|> whileP
+    where
+        someP = sepCharP *> stringP "begin" *> sepCharP *> (sepBy (sepCharP *> charP ';' <* sepCharP) commandP) <* sepCharP <* stringP "end" <* sepCharP
+        ifP = sepCharP *> stringP "if" *> ((\a _ b -> CIf a b) <$> conditionP <*> stringP "then" <*> commandP) <* sepCharP
+        whileP = sepCharP *> stringP "while" *> ((\a _ b -> CWhile a b) <$> conditionP <*> stringP "do" <*> commandP) <* sepCharP
+
+proceduresP :: Parser Procedures
+proceduresP = Procedures <$> tmpP 
+    where
+        tmpP = many ((sepCharP *> ((\a _ b -> (a, b)) <$> procedureHeadP <*> sepCharP <*> subProgramP) <* sepCharP <* charP ';' <* sepCharP))
+
+subProgramP :: Parser SubProgram
+subProgramP = SubProgram <$> guardConstStateP <*> guardVarStateP <*> proceduresP <*> commandP
+    where 
+        guardConstStateP = Parser $ \s -> case runParser constStateP s of
+            Nothing            -> Just (s, ConstState [])
+            Just (rest, token) -> Just (rest, token)
+        guardVarStateP = Parser $ \s -> case runParser varStateP s of
+            Nothing            -> Just (s, VarState [])
+            Just (rest, token) -> Just (rest, token)

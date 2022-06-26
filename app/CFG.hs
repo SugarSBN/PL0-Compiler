@@ -29,5 +29,23 @@ data ProcedureHead = ProcedureHead Identifier
 data ComRead = ComRead [Identifier]
     deriving (Show)
 
-data ComWrite = ComWrite [Identifier]
+data ComWrite = ComWrite [Expr]
+    deriving (Show)
+
+data ConstDefine = ConstDefine Identifier Integer
+    deriving (Show)
+
+data ConstState = ConstState [ConstDefine]
+    deriving (Show)
+
+data VarState = VarState [Identifier]
+    deriving (Show)
+
+data Command = CAssign Assign | CCall ProcedureCall | CRead ComRead | CWrite ComWrite | CSome [Command] | CIf Condition Command | CWhile Condition Command
+    deriving (Show)
+
+data Procedures = Procedures [(ProcedureHead, SubProgram)]
+    deriving (Show)
+
+data SubProgram = SubProgram ConstState VarState Procedures Command
     deriving (Show)
