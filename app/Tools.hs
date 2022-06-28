@@ -87,3 +87,7 @@ isLetter _   = False
 isSpace :: Char -> Bool
 isSpace ' ' = True
 isSpace _ = False
+
+isNeg :: String -> Bool
+isNeg [] = False
+isNeg (x : xs) = if (x == '+') then isNeg xs else not (isNeg xs)
