@@ -2,8 +2,7 @@ module CFG where
 
 import Tools
 
-data Identifier = Identifier String
-    deriving (Show)
+type Identifier = String
 
 data Expr = Expr String Item [(Char, Item)]
     deriving (Show)
@@ -35,17 +34,14 @@ data ComWrite = ComWrite [Expr]
 data ConstDefine = ConstDefine Identifier Integer
     deriving (Show)
 
-data ConstState = ConstState [ConstDefine]
-    deriving (Show)
+type ConstState = [ConstDefine]
 
-data VarState = VarState [Identifier]
-    deriving (Show)
+type VarState = [Identifier]
 
 data Command = CAssign Assign | CCall ProcedureCall | CRead ComRead | CWrite ComWrite | CSome [Command] | CIf Condition Command | CWhile Condition Command
     deriving (Show)
 
-data Procedures = Procedures [(ProcedureHead, SubProgram)]
-    deriving (Show)
+type Procedures = [(ProcedureHead, SubProgram)]
 
 data SubProgram = SubProgram ConstState VarState Procedures Command
     deriving (Show)

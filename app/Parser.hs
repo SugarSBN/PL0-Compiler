@@ -24,7 +24,7 @@ unsignedIntegerP :: Parser Integer
 unsignedIntegerP = sepCharP *> (str2Int <$> (sepCharP *> (predicate isDigit) <* sepCharP)) <* sepCharP
 
 identifierP :: Parser Identifier
-identifierP = sepCharP *> (Identifier <$> (sepCharP *> idP <* sepCharP)) <* sepCharP
+identifierP = sepCharP *> (sepCharP *> idP <* sepCharP) <* sepCharP
     where 
         idP = (\s1 s2 -> s1 ++ s2) <$> (predicate isLetter) <*> tmpP
         tmpP = Parser $ \s -> case runParser (predicate (\c -> isDigit c || isLetter c)) s of
@@ -61,7 +61,7 @@ assignP :: Parser Assign
 assignP = sepCharP *> ((\id _ expr -> Assign id expr) <$> identifierP <*> (sepCharP *> stringP ":=" <* sepCharP) <*> exprP) <* sepCharP
 
 relationP :: Parser String
-relationP = stringP "=" <|> stringP "#" <|> stringP "<=" <|> stringP ">=" <|> stringP "<" <|> stringP ">" 
+relationP = stringP "=" <|> stringP "<>" <|> stringP "<=" <|> stringP ">=" <|> stringP "<" <|> stringP ">" 
 
 conditionP :: Parser Condition
 conditionP = sepCharP *> 
@@ -89,10 +89,10 @@ constDefineP :: Parser ConstDefine
 constDefineP = sepCharP *> ((\a _ b -> ConstDefine a b) <$> identifierP <*> (sepCharP *> charP '=' <* sepCharP) <*> unsignedIntegerP ) <* sepCharP
 
 constStateP :: Parser ConstState
-constStateP = sepCharP *> (ConstState <$> (stringP "const" *> sepCharP *> sepBy (sepCharP *> charP ',' <* sepCharP) constDefineP)) <* sepCharP <* charP ';' <* sepCharP
+constStateP = sepCharP *> (stringP "const" *> sepCharP *> sepBy (sepCharP *> charP ',' <* sepCharP) constDefineP) <* sepCharP <* charP ';' <* sepCharP
 
 varStateP :: Parser VarState
-varStateP = sepCharP *> (VarState <$> (stringP "var" *> sepCharP *> sepBy (sepCharP *> charP ',' <* sepCharP) identifierP)) <* sepCharP <* charP ';' <* sepCharP
+varStateP = sepCharP *> (stringP "var" *> sepCharP *> sepBy (sepCharP *> charP ',' <* sepCharP) identifierP) <* sepCharP <* charP ';' <* sepCharP
 
 commandP :: Parser Command
 commandP = (CAssign <$> assignP) <|> (CCall <$> procedureCallP) <|> (CRead <$> readP) <|> (CWrite <$> writeP) <|> (CSome <$> someP)
@@ -103,7 +103,7 @@ commandP = (CAssign <$> assignP) <|> (CCall <$> procedureCallP) <|> (CRead <$> r
         whileP = sepCharP *> stringP "while" *> ((\a _ b -> CWhile a b) <$> conditionP <*> stringP "do" <*> commandP) <* sepCharP
 
 proceduresP :: Parser Procedures
-proceduresP = Procedures <$> tmpP 
+proceduresP = tmpP 
     where
         tmpP = many ((sepCharP *> ((\a _ b -> (a, b)) <$> procedureHeadP <*> sepCharP <*> subProgramP) <* sepCharP <* charP ';' <* sepCharP))
 
@@ -111,8 +111,8 @@ subProgramP :: Parser SubProgram
 subProgramP = SubProgram <$> guardConstStateP <*> guardVarStateP <*> proceduresP <*> commandP
     where 
         guardConstStateP = Parser $ \s -> case runParser constStateP s of
-            Nothing            -> Just (s, ConstState [])
+            Nothing            -> Just (s, [])
             Just (rest, token) -> Just (rest, token)
         guardVarStateP = Parser $ \s -> case runParser varStateP s of
-            Nothing            -> Just (s, VarState [])
+            Nothing            -> Just (s, [])
             Just (rest, token) -> Just (rest, token)
