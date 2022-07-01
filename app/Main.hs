@@ -5,6 +5,7 @@ import Control.Applicative
 import CFG
 import Parser
 import SymbolTable
+import CodeGen
 import Text.Pretty.Simple (pPrint)
 
                                
@@ -24,4 +25,4 @@ main = do
     -}
     s <- readFile "./testfiles/PL0_code_gcd.pas"
     --print (runParser subProgramP s)
-    pPrint $ (runParser subProgramP s) >>= genSymTable
+    pPrint $ (runParser subProgramP s) >>= genSymTable >>= (genFactor (FactorId "y") 0)

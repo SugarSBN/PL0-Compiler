@@ -13,7 +13,7 @@ data Item = Item Factor [(Char, Factor)]
 data Factor = FactorId Identifier | FactorInt Integer | FactorExpr Expr 
     deriving (Show)
 
-data Assign = Assign Identifier Expr
+data Assign = Assign Identifier Expr                                                                                
     deriving (Show)
 
 data Condition = Condition Expr String Expr | Odd Expr
