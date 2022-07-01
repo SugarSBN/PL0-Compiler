@@ -3,14 +3,14 @@ module SymbolTable where
 import CFG
 
 data Kind = Constant | Variable | Procedure
-    deriving (Show)
+    deriving (Show, Eq)
 data Entry = Entry {
     name  :: String,
     kind  :: Kind,
     val   :: Integer,
     level :: Integer,
     addr  :: Integer
-} deriving (Show)
+} deriving (Show, Eq)
 
 type SymTable = [Entry]
 
@@ -45,3 +45,17 @@ genSubProgram (SubProgram constState varState procedures command) level =
 
 genSymTable :: (String, SubProgram) -> Maybe SymTable
 genSymTable (s, p) = Just $ genSubProgram p 0
+
+
+
+-- Lookup table --
+lookUp :: SymTable -> String -> Integer -> Maybe Entry
+lookUp table nam lev = case reverse table of
+    []       -> Nothing
+    (x : xs) -> if ((name x == nam) && (level x <= lev)) then Just x else lookUp (reverse xs) nam lev
+
+replace :: SymTable -> Entry -> Entry -> SymTable
+replace table old new =
+    case table of
+        []       -> []
+        (x : xs) -> if (x == old) then (new : xs) else replace xs old new
