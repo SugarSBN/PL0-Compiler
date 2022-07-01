@@ -19,6 +19,9 @@ instance Show Assembly where
 
 type Generate a = a -> Integer -> SymTable -> Maybe [Assembly]
 
+(+++) :: Maybe [a] -> Maybe [a] -> Maybe [a]
+a +++ b = (++) <$> a <*> b
+
 genFactor :: Generate Factor
 genFactor (FactorId id) lev symTable = case ent of
     Nothing -> Nothing
@@ -33,37 +36,31 @@ genFactor (FactorExpr x) lev symTable = genExpr x lev symTable
 genItem :: Generate Item
 genItem (Item factor rest) lev symTable = case reverse rest of
     []       -> genFactor factor lev symTable
-    (x : vs) -> (++) <$> (
-                    (++) <$>
-                    genItem (Item factor (reverse vs)) lev symTable <*>
-                    genFactor (snd x) lev symTable)
-                <*> case fst x of
-                        '*' -> Just [Assembly OPR 0 4 ""]
-                        '/' -> Just [Assembly OPR 0 5 ""]
+    (x : vs) -> genItem (Item factor (reverse vs)) lev symTable +++
+                genFactor (snd x) lev symTable +++
+                case fst x of
+                    '*' -> Just [Assembly OPR 0 4 ""]
+                    '/' -> Just [Assembly OPR 0 5 ""]
 
 genExpr :: Generate Expr
 genExpr (Expr mark item rest) lev symTable = case reverse rest of
-    []       -> (++) <$> genItem item lev symTable <*> Just (if (isNeg mark) then [Assembly OPR 0 1 ""] else [])
-    (x : vs) -> (++) <$> (
-                    (++) <$>
-                    genExpr (Expr mark item (reverse vs)) lev symTable <*>
-                    genItem (snd x) lev symTable)
-                <*> case fst x of
-                        '+' -> Just [Assembly OPR 0 2 ""]
-                        '-' -> Just [Assembly OPR 0 3 ""]
+    []       -> genItem item lev symTable +++ Just (if (isNeg mark) then [Assembly OPR 0 1 ""] else [])
+    (x : vs) -> genExpr (Expr mark item (reverse vs)) lev symTable +++
+                genItem (snd x) lev symTable +++
+                case fst x of
+                    '+' -> Just [Assembly OPR 0 2 ""]
+                    '-' -> Just [Assembly OPR 0 3 ""]
                          
 genAssign :: Generate Assign
-genAssign (Assign id expr) lev symTable = case ent of
+genAssign (Assign id expr) lev symTable = case lookUp symTable id lev of
         Nothing -> Nothing
-        Just e  -> (++) <$> genExpr expr lev symTable <*> Just [Assembly STO (lev - (level e)) (addr e) ""]
-    where
-        ent = lookUp symTable id lev
+        Just e  -> genExpr expr lev symTable +++ Just [Assembly STO (lev - (level e)) (addr e) ""]
 
 genCondition :: Generate Condition
-genCondition (Odd expr) lev symTable = (++) <$> genExpr expr lev symTable <*> Just [Assembly OPR 0 6 ""]
+genCondition (Odd expr) lev symTable = genExpr expr lev symTable +++ Just [Assembly OPR 0 6 ""]
 genCondition (Condition e1 opt e2) lev symTable = 
-    (++) <$> (
-    (++) <$> genExpr e1 lev symTable <*> genExpr e2 lev symTable) <*>
+    genExpr e1 lev symTable +++
+    genExpr e2 lev symTable +++
     case opt of
         "="  -> Just [Assembly OPR 0 8 ""]
         "<>" -> Just [Assembly OPR 0 9 ""]
@@ -80,13 +77,21 @@ genComRead (ComRead ids) lev symTable = case ids of
     []          -> Just []
     (id : vs) -> case lookUp symTable id lev of
         Nothing -> Nothing
-        Just e  -> (++) <$> Just [Assembly RED (lev - (level e)) (addr e) ""] <*> genComRead (ComRead vs) lev symTable
+        Just e  -> Just [Assembly RED (lev - (level e)) (addr e) ""] +++ genComRead (ComRead vs) lev symTable
 
 genComWrite :: Generate ComWrite
 genComWrite (ComWrite exprs) lev symTable = case exprs of
     []          -> Just []
-    (expr : vs) -> (++) <$> ((++) <$> genExpr expr lev symTable <*> Just [Assembly WRT 0 0 ""]) <*> genComWrite (ComWrite vs) lev symTable
+    (expr : vs) -> genExpr expr lev symTable +++ Just [Assembly WRT 0 0 ""] +++ genComWrite (ComWrite vs) lev symTable
 
+genCommand :: Generate Command
+genCommand (CAssign ass) lev symTable = genAssign ass lev symTable
+genCommand (CCall   cal) lev symTable = genProcedureCall cal lev symTable
+genCommand (CRead   red) lev symTable = genComRead red lev symTable
+genCommand (CWrite  wrt) lev symTable = genComWrite wrt lev symTable
+genCommand (CSome   som) lev symTable = case som of
+                                            []       -> Just []
+                                            (x : vs) -> genCommand x lev symTable +++ genCommand (CSome vs) lev symTable
 
 
 genSubProgram :: Generate SubProgram
