@@ -22,6 +22,6 @@ main = do
     s <- readFile "PL0_code3.in"
     print (runParser subProgramP s)
     -}
-    s <- readFile "PL0_code.in"
+    s <- readFile "./testfiles/PL0_code_gcd.pas"
     --print (runParser subProgramP s)
     pPrint $ (runParser subProgramP s) >>= genSymTable
