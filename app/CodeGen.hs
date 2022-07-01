@@ -5,7 +5,7 @@ import SymbolTable
 import Tools
 
 data Opt = LIT | LOD | STO | CAL | INT | JMP | JPC | OPR | RED | WRT
-    deriving (Show)
+    deriving (Show, Eq)
 
 data Assembly = Assembly {
     fieldOpt  :: Opt,
@@ -15,7 +15,7 @@ data Assembly = Assembly {
 }  | ProcedureEntry String
 
 instance Show Assembly where
-    show (Assembly opt l a ent) = (show opt) ++ " " ++ (show l) ++ " " ++ (show a) ++ " " ++ ent
+    show (Assembly opt l a ent) = if (opt == CAL) then (show opt) ++ " " ++ ent else (show opt) ++ " " ++ (show l) ++ " " ++ (show a)
 
 type Generate a = a -> Integer -> SymTable -> Maybe [Assembly]
 
@@ -92,11 +92,26 @@ genCommand (CWrite  wrt) lev symTable = genComWrite wrt lev symTable
 genCommand (CSome   som) lev symTable = case som of
                                             []       -> Just []
                                             (x : vs) -> genCommand x lev symTable +++ genCommand (CSome vs) lev symTable
-
+genCommand (CIf con com) lev symTable =
+    case (c1, c2) of
+        (Just a1, Just a2) -> Just $ a1 ++ [Assembly JPC 0 (toInteger (length a2 + 1)) ""] ++ a2
+        _                  -> Nothing
+    where
+        c1 = genCondition con lev symTable
+        c2 = genCommand com lev symTable
+genCommand (CWhile con com) lev symTable = 
+    case (c1, c2) of
+        (Just a1, Just a2) -> Just $ a1 ++ [Assembly JPC 0 (toInteger (length a2 + 2)) ""] ++ a2 
+                              ++ [Assembly JMP 0 (toInteger (0 - (length a1 + length a2 + 1))) ""]
+        _                  -> Nothing
+    where
+        c1 = genCondition con lev symTable
+        c2 = genCommand com lev symTable
 
 genSubProgram :: Generate SubProgram
-genSubProgram (SubProgram constState varState procedures command) lev symTable = Just $ 
-    [Assembly INT 0 (toInteger (length varState)) ""] ++
-    [Assembly OPR 0 0 ""]
+genSubProgram (SubProgram constState varState procedures command) lev symTable = 
+    Just [Assembly INT 0 (toInteger (length varState)) ""] +++
+    genCommand command lev symTable +++ 
+    Just [Assembly OPR 0 0 ""]
 
 

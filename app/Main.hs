@@ -24,5 +24,6 @@ main = do
     print (runParser subProgramP s)
     -}
     s <- readFile "./testfiles/PL0_code_gcd.pas"
+    let p = runParser subProgramP s
     --print (runParser subProgramP s)
-    pPrint $ (runParser subProgramP s) >>= genSymTable >>= (genFactor (FactorId "y") 0)
+    pPrint $ (p >>= symSymTable)
