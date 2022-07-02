@@ -12,10 +12,11 @@ data Assembly = Assembly {
     fieldL    :: Integer,
     fieldA    :: Integer,
     callEntry :: String
-}  | ProcedureEntry String
+}  | ProcedureEntry ProcedureHead
 
 instance Show Assembly where
-    show (Assembly opt l a ent) = if (opt == CAL) then (show opt) ++ " " ++ ent else (show opt) ++ " " ++ (show l) ++ " " ++ (show a)
+    show (Assembly opt l a ent) = if (opt == CAL) then (show opt) ++ " <" ++ ent ++ ".> " ++ (show a) else (show opt) ++ " " ++ (show l) ++ " " ++ (show a)
+    show (ProcedureEntry (ProcedureHead p)) = p ++ "."
 
 type Generate a = a -> Integer -> SymTable -> Maybe [Assembly]
 
@@ -110,8 +111,45 @@ genCommand (CWhile con com) lev symTable =
 
 genSubProgram :: Generate SubProgram
 genSubProgram (SubProgram constState varState procedures command) lev symTable = 
-    Just [Assembly INT 0 (toInteger (length varState)) ""] +++
+    (foldl (+++) (Just []) [Just [ProcedureEntry (fst (procedures !! i))] +++ genSubProgram (snd (procedures !! i)) (lev + 1) symTable | i <- [0 .. (length procedures - 1)]]) +++
+    (if lev == 0 then Just [ProcedureEntry (ProcedureHead "main")] else Just []) +++
+    Just [Assembly INT 0 (toInteger (length varState + 3)) ""] +++
     genCommand command lev symTable +++ 
     Just [Assembly OPR 0 0 ""]
 
+fillBackT :: [Assembly] -> Integer -> SymTable -> SymTable
+fillBackT x n t = case x of
+    []       -> t
+    (v : vs) -> case v of
+        ProcedureEntry (ProcedureHead p) -> case lookUp t p 100 of
+            Nothing -> t -- Never gonna happen
+            Just e  -> fillBackT vs n (replace t e (Entry p Procedure 0 0 n))
+        _           -> fillBackT vs (n + 1) t
 
+fillBack :: [Assembly] -> Integer -> SymTable -> [Assembly]
+fillBack x n t = case x of
+    []       -> []
+    (v : vs) -> case v of
+        ProcedureEntry p     -> (v : (fillBack vs n t))
+        Assembly opt l a ent -> case opt of
+            JPC              -> ((Assembly opt l (n + a) ent) : (fillBack vs (n + 1) t))
+            JMP              -> ((Assembly opt l (n + a) ent) : (fillBack vs (n + 1) t))
+            CAL              -> case lookUp t ent 100 of
+                                    Nothing -> [] -- Never gonna happen
+                                    Just e  -> ((Assembly opt l (addr e) ent) : (fillBack vs (n + 1) t))
+            _                -> (v : (fillBack vs (n + 1) t))
+
+prettyPrint :: [Assembly] -> Integer -> String
+prettyPrint x n = case x of
+    []       -> ""
+    (v : vs) -> case v of
+        ProcedureEntry p -> "<" ++ show v ++ ">\n" ++ 
+                            prettyPrint vs n
+        _                -> "  " ++ (show n) ++ ":  " ++ (show v) ++ "\n" ++
+                            prettyPrint vs (n + 1)
+
+prettyPrintT :: SymTable -> String
+prettyPrintT x = case x of
+    []       -> ""
+    (v : vs) -> name v ++ " " ++ show (kind v) ++ " " ++ show (val v) ++ " " ++ show (level v) ++ " " ++ show (addr v) ++ "\n" ++
+                prettyPrintT vs

@@ -58,4 +58,4 @@ replace :: SymTable -> Entry -> Entry -> SymTable
 replace table old new =
     case table of
         []       -> []
-        (x : xs) -> if (x == old) then (new : xs) else replace xs old new
+        (x : xs) -> if (x == old) then (new : xs) else (x : replace xs old new)
