@@ -1,62 +1,24 @@
 # PL0-Compiler
 
-[![license](https://img.shields.io/github/issues/SugarSBN/PL0-Compiler)](LICENSE)![standard-readme compliant](https://img.shields.io/github/license/SugarSBN/PL0-Compiler)
+![standard-readme compliant](https://img.shields.io/github/license/SugarSBN/PL0-Compiler)![](https://img.shields.io/badge/language-Haskell-brightgreen)![](https://img.shields.io/badge/cabal base-^>=4.14.3.0-brightgreen)
 
+A simple compiler for the toy language PL/0, implemented by Haskell.
 
-
-## Table of Contents
-
-- [Security](#security)
-- [Background](#background)
-- [Install](#install)
+- [Feature](#feature)
 - [Usage](#usage)
-- [API](#api)
-- [Contributing](#contributing)
 - [License](#license)
 
-## Security
+## Feature
 
-### Any optional sections
-
-## Background
-
-### Any optional sections
-
-## Install
-
-This module depends upon a knowledge of [Markdown]().
-
-```
-
-```
-
-### Any optional sections
+* Monadic Parsing
+* interpreter for three address code
 
 ## Usage
 
 ```
-
+cabal build
+cabal run
 ```
-
-Note: The `license` badge image link at the top of this file should be updated with the correct `:user` and `:repo`.
-
-### Any optional sections
-
-## API
-
-### Any optional sections
-
-## More optional sections
-
-## Contributing
-
-See [the contributing file](CONTRIBUTING.md)!
-
-PRs accepted.
-
-Small note: If editing the Readme, please conform to the [standard-readme](https://github.com/RichardLitt/standard-readme) specification.
-
-### Any optional sections
 
 ## License
 
