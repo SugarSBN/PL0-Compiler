@@ -1,6 +1,6 @@
 # PL0-Compiler
 
-![standard-readme compliant](https://img.shields.io/github/license/SugarSBN/PL0-Compiler)![](https://img.shields.io/badge/language-Haskell-brightgreen)![](https://img.shields.io/badge/cabal base-^>=4.14.3.0-brightgreen)
+![standard-readme compliant](https://img.shields.io/github/license/SugarSBN/PL0-Compiler)![](https://img.shields.io/badge/language-Haskell-brightgreen)![](https://img.shields.io/badge/base-^>=4.14.3.0-brightgreen)
 
 A simple compiler for the toy language PL/0, implemented by Haskell.
 
