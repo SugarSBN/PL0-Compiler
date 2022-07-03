@@ -15,7 +15,7 @@ data Assembly = Assembly {
 }  | ProcedureEntry ProcedureHead
 
 instance Show Assembly where
-    show (Assembly opt l a ent) = if (opt == CAL) then (show opt) ++ " <" ++ ent ++ ".> " ++ (show a) else (show opt) ++ " " ++ (show l) ++ " " ++ (show a)
+    show (Assembly opt l a ent) = if (opt == CAL) then (show opt) ++ " <" ++ ent ++ ".> " ++ (show l) ++ " " ++ (show a) else (show opt) ++ " " ++ (show l) ++ " " ++ (show a)
     show (ProcedureEntry (ProcedureHead p)) = p ++ "."
 
 type Generate a = a -> Integer -> SymTable -> Maybe [Assembly]
@@ -71,7 +71,9 @@ genCondition (Condition e1 opt e2) lev symTable =
         "<=" -> Just [Assembly OPR 0 13 ""]
 
 genProcedureCall :: Generate ProcedureCall
-genProcedureCall (ProcedureCall f) lev symTable = Just [Assembly CAL 0 0 f]
+genProcedureCall (ProcedureCall f) lev symTable = case lookUp symTable f lev of
+                                                    Nothing -> Nothing -- Never could happen
+                                                    Just e  -> Just [Assembly CAL (lev - (level e)) 0 f]
 
 genComRead :: Generate ComRead
 genComRead (ComRead ids) lev symTable = case ids of
@@ -109,10 +111,13 @@ genCommand (CWhile con com) lev symTable =
         c1 = genCondition con lev symTable
         c2 = genCommand com lev symTable
 
-genSubProgram :: Generate SubProgram
-genSubProgram (SubProgram constState varState procedures command) lev symTable = 
-    (foldl (+++) (Just []) [Just [ProcedureEntry (fst (procedures !! i))] +++ genSubProgram (snd (procedures !! i)) (lev + 1) symTable | i <- [0 .. (length procedures - 1)]]) +++
-    (if lev == 0 then Just [ProcedureEntry (ProcedureHead "main")] else Just []) +++
+getName :: ProcedureHead -> String
+getName (ProcedureHead s) = s
+
+genSubProgram :: String -> Generate SubProgram
+genSubProgram name (SubProgram constState varState procedures command) lev symTable = 
+    (foldl (+++) (Just []) [genSubProgram (getName (fst (procedures !! i))) (snd (procedures !! i)) (lev + 1) symTable | i <- [0 .. (length procedures - 1)]]) +++
+    Just [ProcedureEntry (ProcedureHead name)] +++
     Just [Assembly INT 0 (toInteger (length varState + 3)) ""] +++
     genCommand command lev symTable +++ 
     Just [Assembly OPR 0 0 ""]
@@ -123,7 +128,7 @@ fillBackT x n t = case x of
     (v : vs) -> case v of
         ProcedureEntry (ProcedureHead p) -> case lookUp t p 100 of
             Nothing -> t -- Never gonna happen
-            Just e  -> fillBackT vs n (replace t e (Entry p Procedure 0 0 n))
+            Just e  -> fillBackT vs n (replace t e (Entry p Procedure 0 (level e) n))
         _           -> fillBackT vs (n + 1) t
 
 fillBack :: [Assembly] -> Integer -> SymTable -> [Assembly]
@@ -138,6 +143,14 @@ fillBack x n t = case x of
                                     Nothing -> [] -- Never gonna happen
                                     Just e  -> ((Assembly opt l (addr e) ent) : (fillBack vs (n + 1) t))
             _                -> (v : (fillBack vs (n + 1) t))
+
+mainEntry :: [Assembly] -> Integer -> Integer
+mainEntry xs n = 
+    case xs of
+        []       -> 0 -- Never gonna happen
+        (v : vs) -> case v of
+                        (ProcedureEntry (ProcedureHead p)) -> if (p == "main") then n else mainEntry vs n
+                        _                                  -> mainEntry vs (n + 1)
 
 prettyPrint :: [Assembly] -> Integer -> String
 prettyPrint x n = case x of
