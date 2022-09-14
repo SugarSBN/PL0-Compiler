@@ -2,7 +2,6 @@ module CodeGen where
 
 import CFG
 import SymbolTable
-import Tools
 
 data Opt = LIT | LOD | STO | CAL | INT | JMP | JPC | OPR | RED | WRT
     deriving (Show, Eq)
@@ -45,7 +44,7 @@ genItem (Item factor rest) lev symTable = case reverse rest of
 
 genExpr :: Generate Expr
 genExpr (Expr mark item rest) lev symTable = case reverse rest of
-    []       -> genItem item lev symTable +++ Just (if (isNeg mark) then [Assembly OPR 0 1 ""] else [])
+    []       -> genItem item lev symTable +++ Just (if (odd (length ((filter (== '-') mark)))) then [Assembly OPR 0 1 ""] else [])
     (x : vs) -> genExpr (Expr mark item (reverse vs)) lev symTable +++
                 genItem (snd x) lev symTable +++
                 case fst x of

@@ -1,7 +1,5 @@
 module CFG where
 
-import Tools
-
 type Identifier = String
 
 data Expr = Expr String Item [(Char, Item)]

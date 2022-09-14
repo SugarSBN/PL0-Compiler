@@ -6,7 +6,6 @@ import Text.Parsec.Char
 import Control.Applicative
 import Control.Monad
 import Data.Char
-import Tools
 import CFG
 
 -- | White spaces
