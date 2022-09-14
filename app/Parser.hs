@@ -1,118 +1,268 @@
 module Parser where
 
+import qualified Text.Parsec as P
+import Text.Parsec.String 
+import Text.Parsec.Char
 import Control.Applicative
-import ParserCombinator
+import Control.Monad
+import Data.Char
 import Tools
 import CFG
 
-charP :: Char -> Parser Char
-charP c = Parser $ \s ->
-    case s of
-        []       -> Nothing
-        (x : xs) -> if (x == c) then Just (xs, x) else Nothing
+-- | White spaces
+whiteSpace :: Parser ()
+whiteSpace = do _ <- many $ oneOf [' ', '\n', '\t', '\r']
+                return ()
 
-stringP :: String -> Parser String
-stringP = sequenceA . map charP
+-- | Integers
+integer :: Parser Integer
+integer = do n <- P.many1 digit
+             return (read n)
+          P.<?> "integers"
 
-sepCharP :: Parser String
-sepCharP = Parser $ \s ->
-    case runParser (predicate (\c -> ((c == ' ') || (c == '\t') || (c == '\n') || (c == '\r')))) s of
-        Nothing            -> Just (s, "")
-        Just (rest, token) -> Just (rest, token)
+-- | Identifiers
+identifier :: Parser Identifier
+identifier = do whiteSpace
+                fc   <- firstChar
+                rest <- many nonFirstChar
+                whiteSpace
+                return (fc : rest)
+             P.<?> "identifiers"
+             where
+                  firstChar = satisfy (\a -> isLetter a || a == '_')
+                  nonFirstChar = satisfy (\a -> isLetter a || isDigit a || a == '_')
 
-unsignedIntegerP :: Parser Integer
-unsignedIntegerP = sepCharP *> (str2Int <$> (sepCharP *> (predicate isDigit) <* sepCharP)) <* sepCharP
+-- | parens
+parens :: Parser a -> Parser a
+parens p = do whiteSpace
+              _ <- char '('
+              whiteSpace
+              b <- p
+              whiteSpace
+              _ <- char ')'
+              whiteSpace
+              return b 
 
-identifierP :: Parser Identifier
-identifierP = sepCharP *> (sepCharP *> idP <* sepCharP) <* sepCharP
-    where 
-        idP = (\s1 s2 -> s1 ++ s2) <$> (predicate isLetter) <*> tmpP
-        tmpP = Parser $ \s -> case runParser (predicate (\c -> isDigit c || isLetter c)) s of
-            Nothing            -> Just (s, "")  
-            Just (rest, token) -> Just (rest, token)
+-- | Expressions
+expression :: Parser Expr
+expression = do sym <- many $ oneOf [' ', '+', '-']
+                head <- item
+                whiteSpace
+                rest <- many (do whiteSpace
+                                 opt <- char '+' <|> char '-'
+                                 whiteSpace
+                                 itm <- item
+                                 return (opt, itm))
+                whiteSpace
+                let n = length $ filter (== '-') sym
+                return $ Expr (if odd n then "-" else "+") head rest
+                  
 
-exprP :: Parser Expr
-exprP = sepCharP *> (Expr <$> markP <*> itemP <*> tmpP) <* sepCharP
-    where
-        markP = sepCharP *> (
-                Parser $ \s -> case runParser (predicate (\c -> c == '+' || c == '-')) s of
-                    Nothing            -> Just (s, "")
-                    Just (rest, token) -> Just (rest, token) )
-                <* sepCharP
-        tmpP = many ((\a b -> (a, b)) <$> (charP '+' <|> charP '-') <*> itemP) <|> pure []
+-- | Items
+item :: Parser Item
+item = do whiteSpace
+          head <- factor
+          rest <- many (do whiteSpace
+                           opt <- char '*' <|> char '/'
+                           whiteSpace
+                           fac <- factor
+                           return (opt, fac))
+          whiteSpace
+          return $ Item head rest
 
-itemP :: Parser Item
-itemP = sepCharP *> (Item <$> factorP <*> tmpP) <* sepCharP
-    where
-        tmpP = many ((\a b -> (a, b)) <$> (charP '*' <|> charP '/') <*> factorP) <|> pure []
+-- | Factors
+factor :: Parser Factor
+factor = do whiteSpace
+            fac <- factorInt <|> factorVar <|> factorExpr
+            whiteSpace
+            return fac
+         where
+          factorInt = do int <- integer
+                         return $ FactorInt int
+          factorVar = do id <- identifier
+                         return $ FactorId id
+          factorExpr = do expr <- parens expression
+                          return $ FactorExpr expr
 
-factorP :: Parser Factor
-factorP = sepCharP *> (Parser f) <* sepCharP
-    where
-        f s = case runParser identifierP s of
-                Just (rest, token)             -> Just (rest, FactorId token)
-                _ -> case runParser unsignedIntegerP s of
-                        Just (rest, token)     -> Just (rest, FactorInt token)
-                        _                  ->  case runParser (sepCharP *> charP '(' *> exprP <* charP ')' <* sepCharP) s of
-                            Just (rest, token) -> Just (rest, FactorExpr token)
-                            _                  -> Nothing
+----------------------------------------------------------------------------------
 
-assignP :: Parser Assign
-assignP = sepCharP *> ((\id _ expr -> Assign id expr) <$> identifierP <*> (sepCharP *> stringP ":=" <* sepCharP) <*> exprP) <* sepCharP
+-- | Assign
+assign :: Parser Assign
+assign = do whiteSpace 
+            id <- identifier
+            whiteSpace
+            _ <- string ":="
+            whiteSpace
+            expr <- expression
+            return $ Assign id expr 
 
-relationP :: Parser String
-relationP = stringP "=" <|> stringP "<>" <|> stringP "<=" <|> stringP ">=" <|> stringP "<" <|> stringP ">" 
+-- | Condition
+condition :: Parser Condition
+condition = P.try (do whiteSpace
+                      exp1 <- expression
+                      whiteSpace
+                      rop <- relation
+                      whiteSpace
+                      exp2 <- expression
+                      whiteSpace
+                      return $ Condition exp1 rop exp2)
+            <|> 
+            do whiteSpace
+               _ <- string "odd"
+               _ <- char ' '
+               whiteSpace
+               exp <- expression
+               whiteSpace
+               return $ Odd exp
+            where
+                 relation = string "=" <|> P.try (string "<>") <|> P.try (string "<=") <|> P.try (string ">=") <|> string "<" <|> string ">"
+                            P.<?> "relation operator"
 
-conditionP :: Parser Condition
-conditionP = sepCharP *> 
-            ((Condition <$> exprP <*> (sepCharP *> relationP <* sepCharP) <*> exprP) <|> 
-            (\_ a -> Odd a) <$> stringP "odd" <*> exprP) 
-            <* sepCharP
+-- | Procedure call
+procedureCall :: Parser ProcedureCall
+procedureCall = do whiteSpace
+                   _ <- string "call"
+                   _ <- char ' '
+                   whiteSpace
+                   id <- identifier
+                   whiteSpace
+                   return $ ProcedureCall id
 
-procedureCallP :: Parser ProcedureCall
-procedureCallP = sepCharP *> ((\_ a -> ProcedureCall a) <$> stringP "call" <*> ((predicate isSpace) *> identifierP)) <* sepCharP
+-- | Procedure head
+procedureHead :: Parser ProcedureHead
+procedureHead = do whiteSpace
+                   _ <- string "procedure"
+                   _ <- char ' '
+                   whiteSpace
+                   id <- identifier
+                   whiteSpace
+                   _ <- char ';'
+                   whiteSpace
+                   return $ ProcedureHead id
 
-procedureHeadP :: Parser ProcedureHead
-procedureHeadP = sepCharP *> ((\_ a _ -> ProcedureHead a) <$> stringP "procedure" <*> ((predicate isSpace) *> identifierP <* sepCharP) <*> stringP ";") <* sepCharP
+-- | Command read
+comRead :: Parser ComRead
+comRead = do whiteSpace
+             _ <- string "read"
+             whiteSpace
+             ids <- parens (P.sepBy identifier (char ','))
+             whiteSpace
+             return $ ComRead ids
 
-readP :: Parser ComRead
-readP = sepCharP *> stringP "read" *> sepCharP *> stringP "(" *> sepCharP *> 
-        (ComRead <$> sepBy (sepCharP *> charP ',' <* sepCharP) identifierP) 
-        <* sepCharP <* stringP ")" <* sepCharP
+-- | Command write
+comWrite :: Parser ComWrite
+comWrite = do whiteSpace
+              _ <- string "write"
+              whiteSpace
+              exps <- parens (P.sepBy expression (char ','))
+              whiteSpace
+              return $ ComWrite exps
 
-writeP :: Parser ComWrite
-writeP = sepCharP *> stringP "write" *> sepCharP *> stringP "(" *> sepCharP *> 
-        (ComWrite <$> sepBy (sepCharP *> charP ',' <* sepCharP) exprP) 
-        <* sepCharP <* stringP ")" <* sepCharP
+-- | Const definition
+constDefine :: Parser ConstDefine
+constDefine = do whiteSpace
+                 id <- identifier
+                 whiteSpace
+                 _ <- char '='
+                 whiteSpace
+                 int <- integer
+                 whiteSpace
+                 return $ ConstDefine id int
 
-constDefineP :: Parser ConstDefine
-constDefineP = sepCharP *> ((\a _ b -> ConstDefine a b) <$> identifierP <*> (sepCharP *> charP '=' <* sepCharP) <*> unsignedIntegerP ) <* sepCharP
+-- | Const state
+constState :: Parser ConstState
+constState = do whiteSpace
+                _ <- string "const"
+                _ <- char ' '
+                whiteSpace
+                cons <- P.sepBy constDefine (char ',')
+                whiteSpace
+                _ <- char ';'
+                whiteSpace
+                return $ cons
 
-constStateP :: Parser ConstState
-constStateP = sepCharP *> (stringP "const" *> sepCharP *> sepBy (sepCharP *> charP ',' <* sepCharP) constDefineP) <* sepCharP <* charP ';' <* sepCharP
+-- | Varable state
+varState :: Parser VarState
+varState = do whiteSpace
+              _ <- string "var"
+              _ <- char ' '
+              whiteSpace
+              ids <- P.sepBy identifier (char ',')
+              whiteSpace
+              _ <- char ';'
+              whiteSpace
+              return $ ids
 
-varStateP :: Parser VarState
-varStateP = sepCharP *> (stringP "var" *> sepCharP *> sepBy (sepCharP *> charP ',' <* sepCharP) identifierP) <* sepCharP <* charP ';' <* sepCharP
+-- | Commands
+command :: Parser Command
+command = P.try (CAssign <$> assign)        <|>
+          P.try (CCall   <$> procedureCall) <|>
+          P.try (CRead   <$> comRead)       <|>
+          P.try (CWrite  <$> comWrite)      <|>
+          P.try (CSome   <$> some)          <|>
+          P.try cif                         <|>
+          P.try cwhile
+          where
+               some = do whiteSpace
+                         _ <- string "begin"
+                         whiteSpace
+                         coms <- P.sepBy command (char ';')
+                         whiteSpace
+                         _ <- string "end"
+                         whiteSpace
+                         return coms
+               cif = do whiteSpace
+                        _ <- string "if"
+                        whiteSpace
+                        con <- condition
+                        whiteSpace
+                        _ <- string "then"
+                        whiteSpace
+                        com <- command
+                        whiteSpace
+                        return $ CIf con com
+               cwhile = do whiteSpace
+                           _ <- string "while"
+                           con <- condition
+                           whiteSpace
+                           _ <- string "do"
+                           com <- command
+                           whiteSpace
+                           return $ CWhile con com
 
-commandP :: Parser Command
-commandP = (CAssign <$> assignP) <|> (CCall <$> procedureCallP) <|> (CRead <$> readP) <|> (CWrite <$> writeP) <|> (CSome <$> someP)
-       <|> ifP <|> whileP
-    where
-        someP = sepCharP *> stringP "begin" *> sepCharP *> (sepBy (sepCharP *> charP ';' <* sepCharP) commandP) <* sepCharP <* stringP "end" <* sepCharP
-        ifP = sepCharP *> stringP "if" *> ((\a _ b -> CIf a b) <$> conditionP <*> stringP "then" <*> commandP) <* sepCharP
-        whileP = sepCharP *> stringP "while" *> ((\a _ b -> CWhile a b) <$> conditionP <*> stringP "do" <*> commandP) <* sepCharP
+-- | Procedures
+procedures :: Parser Procedures
+procedures = many pro
+             where
+                  pro = do whiteSpace
+                           h <- procedureHead
+                           whiteSpace
+                           p <- subProgram
+                           whiteSpace
+                           _ <- char ';'
+                           whiteSpace
+                           return $ (h, p)
 
-proceduresP :: Parser Procedures
-proceduresP = tmpP 
-    where
-        tmpP = many ((sepCharP *> ((\a _ b -> (a, b)) <$> procedureHeadP <*> sepCharP <*> subProgramP) <* sepCharP <* charP ';' <* sepCharP))
+-- | SubPrograms
+subProgram :: Parser SubProgram
+subProgram = do whiteSpace
+                cons <- guardCons
+                whiteSpace
+                vars <- guardVars
+                whiteSpace
+                pros <- procedures
+                whiteSpace
+                coms <- command
+                whiteSpace
+                return $ SubProgram cons vars pros coms
+             where
+                  guardCons = do con <- P.optionMaybe constState
+                                 return $ case con of
+                                             Nothing -> []
+                                             Just t  -> t
+                  guardVars = do var <- P.optionMaybe varState
+                                 return $ case var of
+                                             Nothing -> []
+                                             Just t  -> t
 
-subProgramP :: Parser SubProgram
-subProgramP = SubProgram <$> guardConstStateP <*> guardVarStateP <*> proceduresP <*> commandP
-    where 
-        guardConstStateP = Parser $ \s -> case runParser constStateP s of
-            Nothing            -> Just (s, [])
-            Just (rest, token) -> Just (rest, token)
-        guardVarStateP = Parser $ \s -> case runParser varStateP s of
-            Nothing            -> Just (s, [])
-            Just (rest, token) -> Just (rest, token)
+               

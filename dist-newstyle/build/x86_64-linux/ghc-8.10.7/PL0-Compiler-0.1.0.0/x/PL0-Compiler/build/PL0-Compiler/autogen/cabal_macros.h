@@ -20,16 +20,26 @@
   (major1) == 4 && (major2) <  14 || \
   (major1) == 4 && (major2) == 14 && (minor) <= 3)
 #endif /* MIN_VERSION_base */
+/* package parsec-3.1.14.0 */
+#ifndef VERSION_parsec
+#define VERSION_parsec "3.1.14.0"
+#endif /* VERSION_parsec */
+#ifndef MIN_VERSION_parsec
+#define MIN_VERSION_parsec(major1,major2,minor) (\
+  (major1) <  3 || \
+  (major1) == 3 && (major2) <  1 || \
+  (major1) == 3 && (major2) == 1 && (minor) <= 14)
+#endif /* MIN_VERSION_parsec */
 
-/* tool gcc-9 */
+/* tool gcc-8 */
 #ifndef TOOL_VERSION_gcc
-#define TOOL_VERSION_gcc "9"
+#define TOOL_VERSION_gcc "8"
 #endif /* TOOL_VERSION_gcc */
 #ifndef MIN_TOOL_VERSION_gcc
 #define MIN_TOOL_VERSION_gcc(major1,major2,minor) (\
-  (major1) <  9 || \
-  (major1) == 9 && (major2) <  0 || \
-  (major1) == 9 && (major2) == 0 && (minor) <= 0)
+  (major1) <  8 || \
+  (major1) == 8 && (major2) <  0 || \
+  (major1) == 8 && (major2) == 0 && (minor) <= 0)
 #endif /* MIN_TOOL_VERSION_gcc */
 /* tool ghc-8.10.7 */
 #ifndef TOOL_VERSION_ghc
