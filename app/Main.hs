@@ -7,19 +7,22 @@ import Parser
 import SymbolTable
 import CodeGen
 import StackMachine
+import System.Environment
 
 unFold :: Maybe a -> a
 unFold (Just t) = t
 
 main :: IO ()
 main = do
+    fileName <- getArgs
     -- s <- readFile "./testfiles/PL0_code.pas"
     -- s <- readFile "./testfiles/PL0_code0.pas"
     -- s <- readFile "./testfiles/PL0_code1.pas"
     -- s <- readFile "./testfiles/PL0_code2.pas"
     -- s <- readFile "./testfiles/PL0_code3.pas"
     -- s <- readFile "./testfiles/PL0_code4.pas"
-    s <- readFile "./testfiles/PL0_code_gcd.pas"
+    -- s <- readFile "./testfiles/PL0_code_gcd.pas"
+    s <- readFile (head fileName)
     case P.parse subProgram "" s of                                  
         Left e -> do putStrLn "Error parsing input:"
                      print e                                         -- Parsing,                p    :: SubProgram

@@ -17,7 +17,7 @@ A simple compiler for the toy language PL/0, implemented by Haskell.
 
 ```
 cabal build
-cabal run
+cabal new-run PL0-Compiler -- ./testfiles/PL0_code_gcd.pas
 ```
 
 ## License
