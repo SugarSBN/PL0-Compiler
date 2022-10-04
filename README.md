@@ -12,6 +12,7 @@ A simple compiler for the toy language PL/0, implemented by Haskell.
 
 * Monadic Parsing
 * interpreter for three address code
+* Error location
 
 ## Usage
 
